@@ -1,0 +1,137 @@
+/**
+ * markdown-it-containers stylesheet
+ * Drop into your Observable Framework project alongside form.css
+ */
+
+/* ───────────────────────────────────────────
+   Shared
+─────────────────────────────────────────── */
+
+.container-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.3em;
+  flex-shrink: 0;
+}
+
+/* ───────────────────────────────────────────
+   Tabs
+─────────────────────────────────────────── */
+
+.tabs-container {
+  margin-block: 1rem;
+  border: 1px solid var(--tabs-border, #ddd);
+  border-radius: var(--tabs-radius, 6px);
+  overflow: hidden;
+}
+
+/* Nav bar */
+.tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--tabs-nav-bg, #f5f5f5);
+  border-bottom: 1px solid var(--tabs-border, #ddd);
+}
+
+.tabs-nav__btn {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--tabs-btn-color, #555);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.tabs-nav__btn:hover {
+  color: var(--tabs-active-color, #1a6fc4);
+}
+
+.tabs-nav__btn--active {
+  color: var(--tabs-active-color, #1a6fc4);
+  border-bottom-color: var(--tabs-active-color, #1a6fc4);
+  background: var(--tabs-active-bg, #fff);
+}
+
+/* Panel */
+.tabs-panel {
+  padding: var(--tabs-panel-padding, 1rem 1.25rem);
+  background: var(--tabs-panel-bg, #fff);
+}
+
+.tabs-panel--hidden {
+  display: none;
+}
+
+/* Responsive: scroll tab bar on narrow screens */
+@media (max-width: 480px) {
+  .tabs-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ───────────────────────────────────────────
+   Cards grid
+─────────────────────────────────────────── */
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width, 220px), 1fr));
+  gap: var(--cards-gap, 1rem);
+  margin-block: 1rem;
+}
+
+/* Responsive: single column on small screens */
+@media (max-width: 480px) {
+  .cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ───────────────────────────────────────────
+   Single card
+─────────────────────────────────────────── */
+
+.card {
+  border: 1px solid var(--card-border, #ddd);
+  border-radius: var(--card-radius, 6px);
+  overflow: hidden;
+  background: var(--card-bg, #fff);
+  display: flex;
+  flex-direction: column;
+}
+
+.card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.6rem 1rem;
+  background: var(--card-header-bg, #f5f5f5);
+  border-bottom: 1px solid var(--card-border, #ddd);
+}
+
+.card__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--card-title-color, #222);
+}
+
+.card__body {
+  padding: var(--card-body-padding, 0.85rem 1rem);
+  font-size: 0.95rem;
+  color: var(--theme-foreground, #333);
+  flex: 1;
+}
+
+/* Strip excess margin from first/last child inside card body */
+.card__body > *:first-child { margin-top: 0; }
+.card__body > *:last-child  { margin-bottom: 0; }
