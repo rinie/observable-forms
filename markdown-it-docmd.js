@@ -12,10 +12,10 @@
  *   }
  */
 
-import markdownItForm       from './markdown-it-form.js'
-import markdownItContainers from './markdown-it-containers.js'
+import markdownItForm from './markdown-it-form.js';
+import markdownItContainers from './markdown-it-containers.js';
 
 export default function markdownItDocmd(md) {
-  markdownItForm(md)
-  markdownItContainers(md)
+  markdownItForm(md);
+  markdownItContainers(md);
 }
