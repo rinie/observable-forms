@@ -119,6 +119,26 @@
   border-left: 3px solid var(--form-required-color, #c00);
 }
 
+/* Disabled - a real, greyed-out interactive control (input/select/radio
+   still present with the HTML `disabled` attribute), distinct from
+   `.form-field--readonly` above, which drops the control entirely. */
+.form-field--disabled label,
+.form-field--disabled .form-label {
+  color: var(--theme-foreground-faint, #999);
+}
+
+.form-field--disabled input,
+.form-field--disabled select {
+  background: var(--form-disabled-bg, #f2f2f2);
+  color: var(--theme-foreground-faint, #999);
+  cursor: not-allowed;
+}
+
+.form-field--disabled input[type="checkbox"],
+.form-field--disabled .form-radio-option {
+  cursor: not-allowed;
+}
+
 /* Responsive: collapse to single column on narrow screens */
 @media (max-width: 480px) {
   .form-grid {
