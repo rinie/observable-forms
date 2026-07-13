@@ -58,7 +58,7 @@ export default {
 
 **Row 1 — header:** defines the CSS grid column sizes. A cell starting with `.` sets an extra CSS class on the container; all other cells are column widths (`1fr`, `200px`, etc.).
 
-**Rows 2+ — fields:** each pipe-delimited cell becomes a form field. Empty cells (consecutive `||`) create colspan spans.
+**Rows 2+ — fields:** each pipe-delimited cell becomes a form field. Empty cells (consecutive `||`) create colspan spans. A bare `.` cell is a HARD spacer - unlike an empty cell, it never gets absorbed into a preceding field's colspan, so it always renders its own independent blank grid cell. Useful when each markdown row is meant to be a genuine visual row break at a fixed column count (pad a shorter row out with `.` cells instead of letting it silently merge into the next row's content).
 
 #### Cell grammar
 

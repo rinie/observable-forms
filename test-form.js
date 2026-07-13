@@ -171,6 +171,24 @@ test('an ordinary (non-disabled) checkbox is unaffected - no disabled attribute 
 });
 
 // ---------------------------------------------------------------------------
+console.log('\nparseCell - hard-blank spacer (.)');
+// ---------------------------------------------------------------------------
+test('a bare . cell parses to null, same as an empty cell', () => {
+  eq(parseCell('.'), null);
+  eq(parseCell('  .  '), null);
+});
+
+test('. is only a hard blank on its own - a label that merely contains a dot is unaffected', () => {
+  const f = parseCell('Item 1.5 [item]');
+  eq(f.label, 'Item 1.5');
+});
+
+test('renderFormBlock renders a . cell as its own empty grid cell, distinct from an empty cell', () => {
+  const html = renderFormBlock('| 1fr | 1fr |\n| Name [name] | . |');
+  has(html, 'form-cell form-cell--empty');
+});
+
+// ---------------------------------------------------------------------------
 console.log('\nparseHeader / parseDataRow');
 // ---------------------------------------------------------------------------
 test('parseHeader extracts a leading .class cell and leaves column widths', () => {
@@ -184,6 +202,14 @@ test('parseDataRow folds consecutive empty cells into a colspan', () => {
   eq(rows.length, 2);
   eq(rows[0].colspan, 3);
   eq(rows[1].colspan, 1);
+});
+
+test('parseDataRow does NOT fold a hard-blank . cell into a preceding colspan - it stays its own cell', () => {
+  const rows = parseDataRow(['Name [name]', '.', 'Zip']);
+  eq(rows.length, 3);
+  eq(rows[0].colspan, 1);
+  eq(rows[1].raw, '.');
+  eq(rows[2].colspan, 1);
 });
 
 // ---------------------------------------------------------------------------
