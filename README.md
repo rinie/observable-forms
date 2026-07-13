@@ -52,6 +52,7 @@ export default {
 | City || Zip |
 | Country [country] >> @countryOptions = NL | Gender > M, F, X |
 | Active >  | Status [status] = |
+| Locked [locked] > = true ~ | Category > A, B, C ~ |
 :::
 ```
 
@@ -62,7 +63,7 @@ export default {
 #### Cell grammar
 
 ```
-[!] label [ [name] ] [ (placeholder) ] [ (> | >>) options [ = default ] ] [ = ]
+[!] label [ [name] ] [ (placeholder) ] [ (> | >>) options [ = default ] [ ~ ] ] [ = ] [ ~ ]
 ```
 
 | Syntax | Meaning |
@@ -77,6 +78,9 @@ export default {
 | `> = default` | Checkbox (bare `>`) |
 | `= value` | Checkbox with default checked state |
 | `Label =` | Readonly display field |
+| `Label ~` / `... > ... ~` | Disabled - a real, greyed-out control (any type except `readonly`) |
+
+`~` always comes last: after any default value (`> = true ~`, `>> @varName = NL ~`) for checkbox/radio/select, or in a plain text field's `=` position (`Label [name] ~`). Distinct from `Label =` (readonly) - `~` keeps the real `<input>`/`<select>`/radio group in the DOM with the `disabled` attribute, `=` replaces it with a plain `<span>`.
 
 ---
 
@@ -169,7 +173,7 @@ pipe-table lines
    ▼ renderFormBlock()    → <div class="form-grid"> ... </div>
 ```
 
-**`parseCell`** reads a single pipe-cell string through a series of regex extractions (name override `[x]`, placeholder `(x)`, options `>` / `>>`, default `= x`, required `!`) and returns a plain object describing the field type and attributes.
+**`parseCell`** reads a single pipe-cell string through a series of regex extractions (name override `[x]`, placeholder `(x)`, options `>` / `>>`, default `= x`, required `!`, disabled `~`) and returns a plain object describing the field type and attributes.
 
 **Field types:**
 
@@ -233,6 +237,7 @@ Both stylesheets use CSS custom properties for all visual tokens so they compose
 | `--form-focus` | `#4a90d9` | focus outline colour |
 | `--form-required-color` | `#c00` | required `*` and border accent |
 | `--form-input-bg` | `#fff` | input/select background |
+| `--form-disabled-bg` | `#f2f2f2` | disabled input/select background |
 | `--tabs-border` | `#ddd` | tabs container/nav border |
 | `--tabs-radius` | `6px` | tabs container border-radius |
 | `--tabs-nav-bg` | `#f5f5f5` | tab nav bar background |

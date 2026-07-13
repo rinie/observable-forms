@@ -14,6 +14,7 @@
  *   | City || Zip |
  *   | Country [country] >> @countryOptions = NL | Gender > M, F, X |
  *   | Active >  | Status [status] = |
+ *   | Locked [locked] > = true ~ | Category > A, B, C ~ |
  *   :::
  */
 
@@ -33,7 +34,15 @@ function deriveFieldName(label) {
  * Parse a single cell string into a field descriptor.
  *
  * Grammar:
- *   [!] label [ [name] ] [ (placeholder) ] [ (> | >>) (opt1,opt2 | @var) [ = default ] ] [ = ]
+ *   [!] label [ [name] ] [ (placeholder) ] [ (> | >>) (opt1,opt2 | @var) [ = default ] [ ~ ] ] [ = ] [ ~ ]
+ *
+ * `~` marks the field disabled (renders a real, greyed-out interactive
+ * control with the HTML `disabled` attribute) - distinct from trailing
+ * `=` (readonly), which drops the control entirely in favor of a plain
+ * `<span>`. Meaningful on every type except `readonly` itself (already
+ * non-interactive): a checkbox/radio/select `~` goes at the very end,
+ * after any default value (`> = true ~`, `>> @var = NL ~`); a plain
+ * text field's `~` goes where a trailing `=` would (`Label [name] ~`).
  *
  * Returns null for empty/whitespace cells (grid spacers).
  */
@@ -46,6 +55,7 @@ function parseCell(raw) {
     label: '',
     name: '',
     required: false,
+    disabled: false,
     type: 'text',       // text | radio | select | checkbox | readonly
     placeholder: '',
     options: [],        // string[] for static
@@ -76,6 +86,11 @@ function parseCell(raw) {
     rest = rest.slice(0, optMatch.index).trim();
     let optSrc = optMatch[2].trim();
 
+    if (optSrc.endsWith('~')) {
+      field.disabled = true;
+      optSrc = optSrc.slice(0, -1).trim();
+    }
+
     const defMatch = optSrc.match(/=\s*([^,]+)$/);
     if (defMatch) {
       field.defaultValue = defMatch[1].trim();
@@ -93,6 +108,9 @@ function parseCell(raw) {
     }
   } else if (rest.endsWith('=')) {
     field.type = 'readonly';
+    rest = rest.slice(0, -1).trim();
+  } else if (rest.endsWith('~')) {
+    field.disabled = true;
     rest = rest.slice(0, -1).trim();
   }
 
@@ -127,6 +145,14 @@ function requiredStar(field) {
   return field.required ? '<span class="form-required" aria-hidden="true">*</span>' : '';
 }
 
+function disabledAttr(field) {
+  return field.disabled ? ' disabled' : '';
+}
+
+function disabledClass(field) {
+  return field.disabled ? ' form-field--disabled' : '';
+}
+
 function emitLabel(field) {
   return `<label for="${escAttr(field.name)}">${escAttr(field.label)}${requiredStar(field)}</label>`;
 }
@@ -134,9 +160,9 @@ function emitLabel(field) {
 function emitText(field) {
   const placeholderAttr = field.placeholder ? ` placeholder="${escAttr(field.placeholder)}"` : '';
   const valueAttr = field.defaultValue ? ` value="${escAttr(field.defaultValue)}"` : '';
-  return `<div class="form-field">
+  return `<div class="form-field${disabledClass(field)}">
   ${emitLabel(field)}
-  <input type="text" id="${escAttr(field.name)}" name="${escAttr(field.name)}"${placeholderAttr}${valueAttr}${requiredAttr(field)}>
+  <input type="text" id="${escAttr(field.name)}" name="${escAttr(field.name)}"${placeholderAttr}${valueAttr}${requiredAttr(field)}${disabledAttr(field)}>
 </div>`;
 }
 
@@ -149,8 +175,8 @@ function emitReadonly(field) {
 
 function emitCheckbox(field) {
   const checked = (field.defaultValue === 'true' || field.defaultValue === '1') ? ' checked' : '';
-  return `<div class="form-field form-field--checkbox">
-  <input type="checkbox" id="${escAttr(field.name)}" name="${escAttr(field.name)}"${checked}${requiredAttr(field)}>
+  return `<div class="form-field form-field--checkbox${disabledClass(field)}">
+  <input type="checkbox" id="${escAttr(field.name)}" name="${escAttr(field.name)}"${checked}${requiredAttr(field)}${disabledAttr(field)}>
   <label for="${escAttr(field.name)}">${escAttr(field.label)}${requiredStar(field)}</label>
 </div>`;
 }
@@ -159,9 +185,9 @@ function emitRadio(field) {
   const radios = field.options.map((opt) => {
     const id = `${field.name}_${deriveFieldName(opt)}`;
     const checked = field.defaultValue === opt ? ' checked' : '';
-    return `  <label class="form-radio-option"><input type="radio" id="${escAttr(id)}" name="${escAttr(field.name)}" value="${escAttr(opt)}"${checked}${requiredAttr(field)}> ${escAttr(opt)}</label>`;
+    return `  <label class="form-radio-option"><input type="radio" id="${escAttr(id)}" name="${escAttr(field.name)}" value="${escAttr(opt)}"${checked}${requiredAttr(field)}${disabledAttr(field)}> ${escAttr(opt)}</label>`;
   }).join('\n');
-  return `<div class="form-field form-field--radio">
+  return `<div class="form-field form-field--radio${disabledClass(field)}">
   <span class="form-label">${escAttr(field.label)}${requiredStar(field)}</span>
   <div class="form-radio-group">
 ${radios}
@@ -181,9 +207,9 @@ function emitSelect(field) {
     ? ` data-options-src="${escAttr(field.optionsSrc)}"`
     : ` data-options="${escAttr(field.options.join(','))}"`;
 
-  return `<div class="form-field form-field--select">
+  return `<div class="form-field form-field--select${disabledClass(field)}">
   ${emitLabel(field)}
-  <select id="${escAttr(field.name)}" name="${escAttr(field.name)}"${dynamicAttrs}${requiredAttr(field)}>
+  <select id="${escAttr(field.name)}" name="${escAttr(field.name)}"${dynamicAttrs}${requiredAttr(field)}${disabledAttr(field)}>
 ${optionsHtml}
   </select>
 </div>`;
