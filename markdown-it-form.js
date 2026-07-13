@@ -44,11 +44,20 @@ function deriveFieldName(label) {
  * after any default value (`> = true ~`, `>> @var = NL ~`); a plain
  * text field's `~` goes where a trailing `=` would (`Label [name] ~`).
  *
- * Returns null for empty/whitespace cells (grid spacers).
+ * Returns null for empty/whitespace cells (grid spacers) and for a bare
+ * '.' cell - a HARD spacer, reserved for row-padding. The difference
+ * matters to parseDataRow: an empty cell (`''`) merges into whichever
+ * real cell precedes it (that's how a field's own `:Span` colspan is
+ * expressed), but '.'.trim() is non-empty, so it never gets absorbed
+ * that way - it always renders as its own independent blank grid cell,
+ * which is exactly what's needed to pad a short row out to a fixed
+ * column count without silently widening the last real field on that
+ * row (useful when a caller renders one grid ROW per source line and
+ * wants each such line to be a genuine visual row break).
  */
 function parseCell(raw) {
   const src = raw.trim();
-  if (!src) return null;
+  if (!src || src === '.') return null;
 
   let rest = src;
   const field = {
