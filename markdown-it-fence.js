@@ -42,7 +42,9 @@ function findFenceClose(lineAt, start, end, colons) {
 }
 
 // markdown-it block rule. `types` lists the fence types this rule handles;
-// render(opener, body) returns the HTML for one fence.
+// render(opener, body, env) returns the HTML for one fence. env is markdown-it's
+// render environment; pass it on to any nested md.render so host state (such as
+// Observable Framework's page context) is shared with the fence body.
 function colonFenceRule(types, render) {
   return (state, startLine, endLine, silent) => {
     const lineText = (n) => state.src.slice(state.bMarks[n] + state.tShift[n], state.eMarks[n]);
@@ -56,7 +58,7 @@ function colonFenceRule(types, render) {
 
     const body = state.getLines(startLine + 1, closeLine, state.tShift[startLine], false);
     const token = state.push('html_block', '', 0);
-    token.content = render(opener, body);
+    token.content = render(opener, body, state.env);
     token.map = [startLine, closeLine + 1];
     state.line = closeLine + 1;
     return true;

@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { parseFenceOpener, findFenceClose, colonFenceRule } from './markdown-it-fence.js';
 import markdownItForm from './markdown-it-form.js';
-import markdownItContainers from './markdown-it-containers.js';
+import markdownItContainers, { renderSingleCard } from './markdown-it-containers.js';
 
 let passed = 0;
 let failed = 0;
@@ -154,6 +154,22 @@ test('passes the raw body and advances past the closer', () => {
   eq(seen, '| 1fr |\n| A [a] |');
   eq(state.line, 4);
   eq(state.tokens[0].content, 'HTML');
+});
+
+test('passes markdown-it env to the renderer', () => {
+  const { state } = makeState(':::card\nx\n:::');
+  state.env = { code: [] };
+  let seen = null;
+  colonFenceRule(['card'], (opener, body, env) => { seen = env; return ''; })(state, 0, 3, false);
+  assert.strictEqual(seen, state.env);
+});
+
+test('card body is rendered with the same env (Observable Framework page context)', () => {
+  const env = { code: [] };
+  let seen = null;
+  const md = { render: (src, e) => { seen = e; return src; } };
+  renderSingleCard('body', { title: 'T' }, md, env);
+  assert.strictEqual(seen, env);
 });
 
 test('unclosed fence is left alone', () => {

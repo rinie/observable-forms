@@ -146,7 +146,7 @@ function iconHtml(name) {
 // Module-level counter for unique tab group IDs across a single render pass.
 let tabGroupCounter = 0;
 
-function renderTabs(content, attrs, md) {
+function renderTabs(content, attrs, md, env = {}) {
   const sections = splitOnHeadings(content);
   if (!sections.length) return '<div class="tabs-container"></div>';
 
@@ -171,7 +171,7 @@ function renderTabs(content, attrs, md) {
     const panelId = `${groupId}-panel-${i}`;
     const hidden = i !== 0;
     const bodyMd = s.body.join('\n');
-    const bodyHtml = md ? md.render(bodyMd) : escHtml(bodyMd);
+    const bodyHtml = md ? md.render(bodyMd, env) : escHtml(bodyMd);
     const hiddenClass = hidden ? ' tabs-panel--hidden' : '';
     const hiddenAttr = hidden ? ' hidden' : '';
     html += `  <div class="tabs-panel${hiddenClass}" role="tabpanel" id="${panelId}" aria-labelledby="${tabId}"${hiddenAttr}>\n`;
@@ -204,7 +204,7 @@ function renderCard(title, icon, cssClass, bodyHtml) {
 // Cards grid renderer
 // ---------------------------------------------------------------------------
 
-function renderCards(content, attrs, md) {
+function renderCards(content, attrs, md, env = {}) {
   const sections = splitOnHeadings(content);
   if (!sections.length) return '<div class="cards-grid"></div>';
 
@@ -214,7 +214,7 @@ function renderCards(content, attrs, md) {
 
   let html = `<div class="cards-grid${extraClass}"${colsStyle}>\n`;
   for (const s of sections) {
-    const bodyHtml = md ? md.render(s.body.join('\n')) : escHtml(s.body.join('\n'));
+    const bodyHtml = md ? md.render(s.body.join('\n'), env) : escHtml(s.body.join('\n'));
     html += `${renderCard(s.title, s.icon, s.cssClass, bodyHtml).split('\n').map((l) => `  ${l}`).join('\n')}\n`;
   }
   html += `</div>\n`;
@@ -225,8 +225,8 @@ function renderCards(content, attrs, md) {
 // Single :::card block renderer
 // ---------------------------------------------------------------------------
 
-function renderSingleCard(content, attrs, md) {
-  const bodyHtml = md ? md.render(content.trim()) : escHtml(content.trim());
+function renderSingleCard(content, attrs, md, env = {}) {
+  const bodyHtml = md ? md.render(content.trim(), env) : escHtml(content.trim());
   return renderCard(attrs.title, attrs.icon, attrs.cssClass, bodyHtml);
 }
 
@@ -302,23 +302,23 @@ const TABS_RUNTIME = `
 export default function markdownItContainers(md) {
   let tabsRuntimeEmitted = false;
 
-  // Bodies are rendered with md.render, so fences nested inside them (with
+  // Bodies are rendered with md.render(…, env), so fences nested inside them (with
   // fewer colons) are handled by the same block rules.
-  const renderFence = ({ type, args }, content) => {
+  const renderFence = ({ type, args }, content, env) => {
     const attrs = parseOpenerAttrs(args);
     let html = '';
     let runtime = '';
 
     if (type === 'tabs') {
-      html = renderTabs(content, attrs, md);
+      html = renderTabs(content, attrs, md, env);
       if (!tabsRuntimeEmitted) {
         runtime = TABS_RUNTIME;
         tabsRuntimeEmitted = true;
       }
     } else if (type === 'cards') {
-      html = renderCards(content, attrs, md);
+      html = renderCards(content, attrs, md, env);
     } else if (type === 'card') {
-      html = renderSingleCard(content, attrs, md);
+      html = renderSingleCard(content, attrs, md, env);
     }
 
     return runtime + html;
