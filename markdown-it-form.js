@@ -35,7 +35,60 @@ function deriveFieldName(label) {
     .replace(/^_+|_+$/g, '');
 }
 
+// ---------------------------------------------------------------------------
+// Expressions
+// Template literal cells (`…${x}…`), {name} values and $key labels are
+// emitted as ${…} placeholders, which Observable Framework evaluates
+// reactively. Elsewhere they show as written.
+// ---------------------------------------------------------------------------
+
+const EXPR_LABEL_RE = /^\$[\w$]*$/;
+const CLASSES = String.raw`\.[\w-]+(?:\s+\.[\w-]+)*`;
+const TEMPLATE_RE = new RegExp(
+  String.raw`\`([^\`]*)\`(?:\{(${CLASSES})\})?|\{([A-Za-z_$][\w$]*)\}|\{(${CLASSES})\}`,
+  'g',
+);
+
+function classList(s) {
+  return s ? s.split(/\s+/).map((c) => c.replace(/^\./, '')) : [];
+}
+
 /**
+ * Split a cell into template parts, standalone {.class} groups (classes for
+ * the whole cell) and the remaining plain text:
+ *   `…`            template literal part
+ *   `…`{.a .b}     template literal part wrapped in <span class="a b">
+ *   {name}         shorthand for `${name}`
+ *   {.a .b}        cell classes
+ */
+function extractTemplates(src) {
+  const parts = [];
+  const cellClasses = [];
+  let rest = '';
+  let last = 0;
+  for (const m of src.matchAll(TEMPLATE_RE)) {
+    rest += src.slice(last, m.index);
+    last = m.index + m[0].length;
+    if (m[1] !== undefined) parts.push({ template: m[1], classes: classList(m[2]) });
+    else if (m[3]) parts.push({ template: `\${${m[3]}}`, classes: [] });
+    else cellClasses.push(...classList(m[4]));
+  }
+  rest += src.slice(last);
+  return { parts, cellClasses, rest: rest.replace(/\s+/g, ' ').trim() };
+}
+
+/**
+ * Parse a single cell string into a field descriptor.
+ *
+ * Grammar:
+ *   [!] label [ [name] ] [ (placeholder) ] [ (> | >>) (opt1,opt2 | @var) [ = default ] [ ~ ] ] [ = ] [ ~ ]
+ *
+ * plus, anywhere in the cell, template parts and {.class} groups (see
+ * extractTemplates). A cell with only template parts is a `template` field;
+ * template parts next to a field are shown after it. A label of `$key` is an
+ * expression, a label of `-` is no label.
+ *
+ * `~` marks the field disabled (renders a real, greyed-out interactive
  * Parse a single cell string into a field descriptor.
  *
  * Grammar:
@@ -64,18 +117,28 @@ function parseCell(raw) {
   const src = raw.trim();
   if (!src || src === '.') return null;
 
-  let rest = src;
+  const { parts, cellClasses, rest: plain } = extractTemplates(src);
+  if (!plain && !parts.length) return null;
+
+  let rest = plain;
   const field = {
     label: '',
     name: '',
     required: false,
     disabled: false,
-    type: 'text',       // text | radio | select | checkbox | readonly
+    type: 'text',       // text | radio | select | checkbox | readonly | template
     placeholder: '',
     options: [],        // string[] for static
     optionsSrc: '',     // @varName for dynamic
     defaultValue: '',
+    template: parts,    // [{ template, classes }]
+    cellClasses,        // string[] for the grid cell
   };
+
+  if (!rest) {
+    field.type = 'template';
+    return field;
+  }
 
   if (rest.startsWith('!')) {
     field.required = true;
@@ -167,8 +230,44 @@ function disabledClass(field) {
   return field.disabled ? ' form-field--disabled' : '';
 }
 
+// Template text outside ${…} is escaped; the expressions are kept as written.
+function emitTemplate(template) {
+  let out = '';
+  let i = 0;
+  while (i < template.length) {
+    const start = template.indexOf('${', i);
+    if (start < 0) {
+      out += escAttr(template.slice(i));
+      break;
+    }
+    out += escAttr(template.slice(i, start));
+    let depth = 0;
+    let end = start + 1;
+    for (; end < template.length; end += 1) {
+      if (template[end] === '{') depth += 1;
+      else if (template[end] === '}' && --depth === 0) break;
+    }
+    out += template.slice(start, end + 1);
+    i = end + 1;
+  }
+  return out;
+}
+
+function emitParts(parts) {
+  return parts.map(({ template, classes }) => (classes.length
+    ? `<span class="${escAttr(classes.join(' '))}">${emitTemplate(template)}</span>`
+    : emitTemplate(template))).join('');
+}
+
+function labelHtml(field) {
+  if (field.label === '-') return '';
+  if (EXPR_LABEL_RE.test(field.label)) return `\${${field.label}}`;
+  return escAttr(field.label);
+}
+
 function emitLabel(field) {
-  return `<label for="${escAttr(field.name)}">${escAttr(field.label)}${requiredStar(field)}</label>`;
+  if (field.label === '-') return '';
+  return `<label for="${escAttr(field.name)}">${labelHtml(field)}${requiredStar(field)}</label>`;
 }
 
 function emitText(field) {
@@ -191,7 +290,7 @@ function emitCheckbox(field) {
   const checked = (field.defaultValue === 'true' || field.defaultValue === '1') ? ' checked' : '';
   return `<div class="form-field form-field--checkbox${disabledClass(field)}">
   <input type="checkbox" id="${escAttr(field.name)}" name="${escAttr(field.name)}"${checked}${requiredAttr(field)}${disabledAttr(field)}>
-  <label for="${escAttr(field.name)}">${escAttr(field.label)}${requiredStar(field)}</label>
+  <label for="${escAttr(field.name)}">${labelHtml(field)}${requiredStar(field)}</label>
 </div>`;
 }
 
@@ -202,7 +301,7 @@ function emitRadio(field) {
     return `  <label class="form-radio-option"><input type="radio" id="${escAttr(id)}" name="${escAttr(field.name)}" value="${escAttr(opt)}"${checked}${requiredAttr(field)}${disabledAttr(field)}> ${escAttr(opt)}</label>`;
   }).join('\n');
   return `<div class="form-field form-field--radio${disabledClass(field)}">
-  <span class="form-label">${escAttr(field.label)}${requiredStar(field)}</span>
+  <span class="form-label">${labelHtml(field)}${requiredStar(field)}</span>
   <div class="form-radio-group">
 ${radios}
   </div>
@@ -229,13 +328,27 @@ ${optionsHtml}
 </div>`;
 }
 
+function emitTemplateField(field) {
+  return `<div class="form-field form-field--template">
+  <span class="form-value">${emitParts(field.template)}</span>
+</div>`;
+}
+
+// Template parts next to a field go after the control, inside its form-field.
+function withSuffix(html, field) {
+  if (field.type === 'template' || !field.template.length) return html;
+  const at = html.lastIndexOf('</div>');
+  return `${html.slice(0, at)}  <span class="form-suffix">${emitParts(field.template)}</span>\n${html.slice(at)}`;
+}
+
 function emitField(field) {
   switch (field.type) {
-    case 'readonly': return emitReadonly(field);
-    case 'checkbox': return emitCheckbox(field);
-    case 'radio':    return emitRadio(field);
-    case 'select':   return emitSelect(field);
-    default:         return emitText(field);
+    case 'template': return emitTemplateField(field);
+    case 'readonly': return withSuffix(emitReadonly(field), field);
+    case 'checkbox': return withSuffix(emitCheckbox(field), field);
+    case 'radio':    return withSuffix(emitRadio(field), field);
+    case 'select':   return withSuffix(emitSelect(field), field);
+    default:         return withSuffix(emitText(field), field);
   }
 }
 
@@ -309,7 +422,8 @@ function renderFormBlock(content) {
       if (!field) {
         html += `  <div class="form-cell form-cell--empty"${spanStyle}></div>\n`;
       } else {
-        html += `  <div class="form-cell${spanClass}"${spanStyle}>\n`;
+        const cellClass = field.cellClasses.length ? ` ${escAttr(field.cellClasses.join(' '))}` : '';
+        html += `  <div class="form-cell${spanClass}${cellClass}"${spanStyle}>\n`;
         html += `${emitField(field).split('\n').map((l) => `    ${l}`).join('\n')}\n`;
         html += `  </div>\n`;
       }
@@ -392,4 +506,5 @@ export {
   parseDataRow,
   renderFormBlock,
   deriveFieldName,
+  extractTemplates,
 };

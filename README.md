@@ -80,6 +80,37 @@ export default {
 | `Label =` | Readonly display field |
 | `Label ~` / `... > ... ~` | Disabled - a real, greyed-out control (any type except `readonly`) |
 
+#### Expressions and classes
+
+| Syntax | Meaning |
+|---|---|
+| `` `text ${expr} text` `` | Template cell: a JS template literal in a code span, shown as text |
+| `` `…`{.big .bold} `` | Template part wrapped in `<span class="big bold">` |
+| `{name}` | Shorthand for `` `${name}` `` |
+| `$key [name]` | Label that is an expression: `${$key}` |
+| `-[name]` | Field without a label |
+| `{.a .b}` (on its own) | CSS classes for the grid cell |
+
+A cell with only template parts is a read-only text cell. Template parts next to a field (`` -[qty] `${unit}` ``) are shown after the control.
+
+In Observable Framework every `${…}` becomes a reactive inline expression, so values and texts are plain page variables:
+
+````markdown
+```js
+const {$multiply, $of} = {$multiply: " x ", $of: " (of "};
+const qty = view(Inputs.range([1, 20], {step: 1}));
+```
+
+:::form
+| 1fr | 2fr |
+| Quantity [qty_in] | `${qty}${$multiply}${pack}${$of}${unit})` |
+:::
+````
+
+Text outside `${…}` is HTML-escaped; the expressions are passed through as written. Outside Framework they show literally. A cell with only a label (`$key` or `City`) is still a text input; write a caption as `` `${$key}` ``.
+
+Inside backticks no markdown preview treats `$…$` as math, so keep `{name}` and `$key` labels to places where `$` follows a space, `|`, `"` or `!`.
+
 `~` always comes last: after any default value (`> = true ~`, `>> @varName = NL ~`) for checkbox/radio/select, or in a plain text field's `=` position (`Label [name] ~`). Distinct from `Label =` (readonly) - `~` keeps the real `<input>`/`<select>`/radio group in the DOM with the `disabled` attribute, `=` replaces it with a plain `<span>`.
 
 ---

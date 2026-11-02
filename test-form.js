@@ -5,6 +5,7 @@ import {
   parseDataRow,
   renderFormBlock,
   deriveFieldName,
+  extractTemplates,
 } from './markdown-it-form.js';
 
 let passed = 0;
@@ -210,6 +211,71 @@ test('parseDataRow does NOT fold a hard-blank . cell into a preceding colspan - 
   eq(rows[0].colspan, 1);
   eq(rows[1].raw, '.');
   eq(rows[2].colspan, 1);
+});
+
+// ---------------------------------------------------------------------------
+console.log('\nexpressions');
+
+test('extractTemplates splits template parts, {name}, cell classes and the rest', () => {
+  const r = extractTemplates('[artnr] `${a}x`{.big} {b} {.faint .small}');
+  eq(r.rest, '[artnr]');
+  eq(r.parts, [{ template: '${a}x', classes: ['big'] }, { template: '${b}', classes: [] }]);
+  eq(r.cellClasses, ['faint', 'small']);
+});
+
+test('a cell with only template parts is a template field', () => {
+  const f = parseCell('`${qty}${$multiply}${pupackqyf}`');
+  eq(f.type, 'template');
+  eq(f.template[0].template, '${qty}${$multiply}${pupackqyf}');
+});
+
+test('{name} alone is a template field showing ${name}', () => {
+  const html = renderFormBlock('| 1fr |\n| {unitqyf} |');
+  has(html, 'form-field--template');
+  has(html, '<span class="form-value">${unitqyf}</span>');
+});
+
+test('template text is escaped, ${…} expressions are kept as written', () => {
+  const html = renderFormBlock('| 1fr |\n| `a < b: ${x < y ? "<" : {}.k}` |');
+  has(html, 'a &lt; b: ${x < y ? "<" : {}.k}');
+});
+
+test('class after a template part wraps that part', () => {
+  const html = renderFormBlock('| 1fr |\n| `${qty}`{.huge} `${unit}`{.readable} |');
+  has(html, '<span class="huge">${qty}</span><span class="readable">${unit}</span>');
+});
+
+test('trailing {.class} goes on the grid cell, not into the label', () => {
+  const html = renderFormBlock('| 1fr |\n| Article [artnr] {.faint .small} |');
+  has(html, 'class="form-cell faint small"');
+  has(html, '>Article</label>');
+});
+
+test('$key label becomes an expression', () => {
+  const html = renderFormBlock('| 1fr |\n| !$pick_location [fromloc] |');
+  has(html, '<label for="fromloc">${$pick_location}<span class="form-required"');
+});
+
+test('label - renders no label element', () => {
+  const html = renderFormBlock('| 1fr |\n| -[message] |');
+  hasNot(html, '<label');
+  has(html, 'name="message"');
+});
+
+test('template next to a field is shown after the control', () => {
+  const html = renderFormBlock('| 1fr |\n| -[qtypack] `${unitqyf}` |');
+  has(html, 'name="qtypack"');
+  has(html, '<span class="form-suffix">${unitqyf}</span>');
+  assert(html.indexOf('form-suffix') > html.indexOf('name="qtypack"'));
+});
+
+test('a cell with only a class is an empty cell', () => {
+  eq(parseCell('{.faint}'), null);
+});
+
+test('plain text with $ inside a word is not an expression', () => {
+  const html = renderFormBlock('| 1fr |\n| Price $ [price] |');
+  has(html, '>Price $</label>');
 });
 
 // ---------------------------------------------------------------------------
