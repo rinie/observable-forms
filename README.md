@@ -141,23 +141,33 @@ Card body content goes here.
 
 ### How the plugins hook into markdown-it
 
-Both plugins use **`md.core.ruler`** — the pre-render token pipeline — rather than fence or block rules. This lets them work even when Observable Framework wraps markdown-it with its own configuration.
+Both plugins register a **block rule** (`md.block.ruler.before('fence', …)`) built by the shared `colonFenceRule` in `markdown-it-fence.js`. The rule matches an opener line of 3 or more colons plus a type name, finds the closer with the **same number of colons**, and emits the whole range as one `html_block` token. The body reaches the renderer as raw source lines, so fence lines need no blank lines around them.
 
-Each plugin pushes a rule that iterates the flat `state.tokens` array, finds `:::type` opener tokens, collects all inline tokens up to the matching `:::` closer, renders them to HTML, and splices the entire token range into a single `html_block` token.
+Fences nest by colon count, as in markdown-it-container and pandoc fenced divs. Card, cards and tabs bodies are rendered with `md.render`, so a shorter fence inside them is picked up by the same rules:
+
+```markdown
+::::card "Pick data"
+:::form
+| 1fr | 1fr |
+| Location [loc] | Article [art] |
+:::
+::::
+```
+
+The inner `:::` closes the form, never the card. Two nested fences of the same length are not supported; give the outer one more colons.
 
 ```
 md source
    │
-   ▼ markdown-it lexer
-flat token array  [ inline(":::form"), inline("| col |"), inline(":::"), ... ]
-   │
-   ▼ core ruler (our rule)
-   │  scan tokens for opener
-   │  collect content lines
-   │  splice → html_block(rendered HTML)
+   ▼ markdown-it block parser
+   │  colonFenceRule: opener ":::form" / "::::card" …
+   │  closer = next line with the same colon count
+   │  body (raw lines) → renderFormBlock / renderSingleCard(md.render(body))
    ▼
-rendered HTML
+html_block(rendered HTML)
 ```
+
+Earlier versions used a `md.core.ruler` pass over paragraph tokens instead. That pass matched exactly three colons, so it couldn't nest, and the first bare `:::` closed any block.
 
 ### markdown-it-form
 
@@ -262,15 +272,22 @@ Both stylesheets use CSS custom properties for all visual tokens so they compose
 markdown-it-form.js        :::form plugin
 markdown-it-containers.js  :::tabs / :::cards / :::card plugin
 markdown-it-docmd.js       unified entry point (registers both)
+markdown-it-fence.js       shared colon-fence block rule (nesting by colon count)
 form.css                   form-grid stylesheet
 containers.css             tabs + cards stylesheet
+test-form.js               Node.js test suite for form plugin
 test-containers.js         Node.js test suite for containers plugin
+test-fence.js              Node.js test suite for fences and nesting
 ```
 
 ## Running tests
 
 ```sh
+node test-form.js
 node test-containers.js
+node test-fence.js
 ```
+
+`test-fence.js` drives both plugins through a minimal stand-in for markdown-it's block state, so it runs without `node_modules`.
 
 No build step or test framework required — uses Node's built-in `assert` module.

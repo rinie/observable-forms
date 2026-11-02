@@ -16,7 +16,12 @@
  *   | Active >  | Status [status] = |
  *   | Locked [locked] > = true ~ | Category > A, B, C ~ |
  *   :::
+ *
+ * Fences nest by colon count (see markdown-it-fence.js), so a form can sit
+ * inside a ::::card.
  */
+
+import { colonFenceRule } from './markdown-it-fence.js';
 
 // ---------------------------------------------------------------------------
 // Cell parser
@@ -367,37 +372,17 @@ const RUNTIME_SCRIPT = `
 export default function markdownItForm(md) {
   let runtimeEmitted = false;
 
-  md.use((instance) => {
-    const OPEN_RE = /^:::\s*form\s*$/;
-    const CLOSE_RE = /^:::\s*$/;
+  const renderFence = (opener, body) => {
+    let runtime = '';
+    if (!runtimeEmitted) {
+      runtime = RUNTIME_SCRIPT;
+      runtimeEmitted = true;
+    }
+    return runtime + renderFormBlock(body);
+  };
 
-    instance.core.ruler.push('form_container', (state) => {
-      const { tokens } = state;
-      let i = 0;
-      while (i < tokens.length) {
-        const tok = tokens[i];
-        if (tok.type === 'inline' && OPEN_RE.test(tok.content.trim())) {
-          let j = i + 1;
-          const contentLines = [];
-          while (j < tokens.length) {
-            const t = tokens[j];
-            if (t.type === 'inline' && CLOSE_RE.test(t.content.trim())) break;
-            if (t.type === 'inline') contentLines.push(t.content);
-            j += 1;
-          }
-          const formHtml = renderFormBlock(contentLines.join('\n'));
-          let runtime = '';
-          if (!runtimeEmitted) {
-            runtime = RUNTIME_SCRIPT;
-            runtimeEmitted = true;
-          }
-          const token = new state.Token('html_block', '', 0);
-          token.content = runtime + formHtml;
-          tokens.splice(i, j - i + 1, token);
-        }
-        i += 1;
-      }
-    });
+  md.block.ruler.before('fence', 'form_fence', colonFenceRule(['form'], renderFence), {
+    alt: ['paragraph', 'reference', 'blockquote', 'list'],
   });
 }
 

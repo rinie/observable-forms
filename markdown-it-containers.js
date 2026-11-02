@@ -29,7 +29,12 @@
  *   icon:name    Lucide icon name
  *   .classname   extra CSS class on container
  *   cols:N       number of columns for :::cards grid (default: auto)
+ *
+ * Fences nest by colon count (see markdown-it-fence.js): a ::::card can
+ * contain a :::form.
  */
+
+import { colonFenceRule } from './markdown-it-fence.js';
 
 // ---------------------------------------------------------------------------
 // Attribute parser for opener line
@@ -297,54 +302,30 @@ const TABS_RUNTIME = `
 export default function markdownItContainers(md) {
   let tabsRuntimeEmitted = false;
 
-  const CONTAINER_RE = /^:::\s*(tabs|cards|card)(.*)?$/;
-  const CLOSE_RE = /^:::\s*$/;
+  // Bodies are rendered with md.render, so fences nested inside them (with
+  // fewer colons) are handled by the same block rules.
+  const renderFence = ({ type, args }, content) => {
+    const attrs = parseOpenerAttrs(args);
+    let html = '';
+    let runtime = '';
 
-  md.core.ruler.push('containers', (state) => {
-    const { tokens } = state;
-    let i = 0;
-
-    while (i < tokens.length) {
-      const tok = tokens[i];
-      if (tok.type === 'inline') {
-        const openMatch = tok.content.trim().match(CONTAINER_RE);
-        if (openMatch) {
-          const type = openMatch[1];
-          const attrStr = (openMatch[2] || '').trim();
-          const attrs = parseOpenerAttrs(attrStr);
-
-          const contentLines = [];
-          let j = i + 1;
-          while (j < tokens.length) {
-            const t = tokens[j];
-            if (t.type === 'inline' && CLOSE_RE.test(t.content.trim())) break;
-            if (t.type === 'inline') contentLines.push(t.content);
-            j += 1;
-          }
-
-          const content = contentLines.join('\n');
-          let html = '';
-          let runtime = '';
-
-          if (type === 'tabs') {
-            html = renderTabs(content, attrs, md);
-            if (!tabsRuntimeEmitted) {
-              runtime = TABS_RUNTIME;
-              tabsRuntimeEmitted = true;
-            }
-          } else if (type === 'cards') {
-            html = renderCards(content, attrs, md);
-          } else if (type === 'card') {
-            html = renderSingleCard(content, attrs, md);
-          }
-
-          const token = new state.Token('html_block', '', 0);
-          token.content = runtime + html;
-          tokens.splice(i, j - i + 1, token);
-        }
+    if (type === 'tabs') {
+      html = renderTabs(content, attrs, md);
+      if (!tabsRuntimeEmitted) {
+        runtime = TABS_RUNTIME;
+        tabsRuntimeEmitted = true;
       }
-      i += 1;
+    } else if (type === 'cards') {
+      html = renderCards(content, attrs, md);
+    } else if (type === 'card') {
+      html = renderSingleCard(content, attrs, md);
     }
+
+    return runtime + html;
+  };
+
+  md.block.ruler.before('fence', 'container_fence', colonFenceRule(['tabs', 'cards', 'card'], renderFence), {
+    alt: ['paragraph', 'reference', 'blockquote', 'list'],
   });
 }
 
